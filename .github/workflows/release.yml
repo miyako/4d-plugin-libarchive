@@ -44,9 +44,7 @@ jobs:
         with:
           ref: ${{ needs.version.outputs.tag }}
           submodules: recursive
-
-      - name: build with CMake
-        shell: pwsh
+          fetch-depth: 0
         run: |
           cd ${{ env.PRODUCT_NAME }}
           mkdir cmake-build; cd cmake-build
