@@ -1,0 +1,12 @@
+{
+    "Tests": {
+        "methods": [
+            "test_all",
+            "test_create_tar_gz",
+            "test_extract",
+            "test_list",
+            "test_zip"
+        ]
+    },
+    "trash": {}
+}

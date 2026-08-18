@@ -1,0 +1,26 @@
+{
+    "name": "4DArchive",
+    "id": 20002,
+    "commands": [
+        {
+            "theme": "4DArchive",
+            "syntax": "Archive Create(&T;&T;&L;&L):L",
+            "threadSafe": true
+        },
+        {
+            "theme": "4DArchive",
+            "syntax": "Archive Extract(&T;&T):L",
+            "threadSafe": true
+        },
+        {
+            "theme": "4DArchive",
+            "syntax": "Archive List(&T):T",
+            "threadSafe": true
+        },
+        {
+            "theme": "4DArchive",
+            "syntax": "Archive SET PASSPHRASE(&T)",
+            "threadSafe": true
+        }
+    ]
+}

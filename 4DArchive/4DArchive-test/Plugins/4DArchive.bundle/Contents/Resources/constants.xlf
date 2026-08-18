@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<xliff version="1.0" xmlns:d4="http://www.4d.com/d4-ns">
+<header>
+    <note>4DArchive</note>
+</header>
+<group resname="themes">
+    <trans-unit id="Archive Format" resname="Archive Format" translate="no">
+        <source>Archive Format</source>
+    </trans-unit>
+    <trans-unit id="Archive Filter" resname="Archive Filter" translate="no">
+        <source>Archive Filter</source>
+    </trans-unit>
+</group>
+<group restype="x-4DK#" d4:groupName="Archive Format">
+    <trans-unit d4:value="1" id="Archive format tar">
+        <source>Archive format tar</source>
+    </trans-unit>
+    <trans-unit d4:value="2" id="Archive format zip">
+        <source>Archive format zip</source>
+    </trans-unit>
+    <trans-unit d4:value="3" id="Archive format 7zip">
+        <source>Archive format 7zip</source>
+    </trans-unit>
+    <trans-unit d4:value="4" id="Archive format cpio">
+        <source>Archive format cpio</source>
+    </trans-unit>
+</group>
+<group restype="x-4DK#" d4:groupName="Archive Filter">
+    <trans-unit d4:value="0" id="Archive filter none">
+        <source>Archive filter none</source>
+    </trans-unit>
+    <trans-unit d4:value="1" id="Archive filter gzip">
+        <source>Archive filter gzip</source>
+    </trans-unit>
+    <trans-unit d4:value="2" id="Archive filter bzip2">
+        <source>Archive filter bzip2</source>
+    </trans-unit>
+    <trans-unit d4:value="3" id="Archive filter xz">
+        <source>Archive filter xz</source>
+    </trans-unit>
+    <trans-unit d4:value="4" id="Archive filter zstd">
+        <source>Archive filter zstd</source>
+    </trans-unit>
+    <trans-unit d4:value="5" id="Archive filter lz4">
+        <source>Archive filter lz4</source>
+    </trans-unit>
+</group>
+</xliff>
