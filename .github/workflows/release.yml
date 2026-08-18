@@ -45,6 +45,9 @@ jobs:
           ref: ${{ needs.version.outputs.tag }}
           submodules: recursive
           fetch-depth: 0
+
+      - name: build with CMake
+        shell: pwsh
         run: |
           cd ${{ env.PRODUCT_NAME }}
           mkdir cmake-build; cd cmake-build
@@ -68,6 +71,7 @@ jobs:
         with:
           ref: ${{ needs.version.outputs.tag }}
           submodules: recursive
+          fetch-depth: 0
 
       - name: download windows binaries
         uses: actions/download-artifact@v4
