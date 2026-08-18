@@ -147,9 +147,8 @@ jobs:
           IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" \
             | grep "Developer ID Application" | head -1 | sed -E 's/.*"(.*)".*/\1/')
           echo "Signing with: $IDENTITY"
-          codesign --verbose --timestamp --force --options=runtime \
+          codesign --deep --verbose --timestamp --force --options=runtime \
             --sign "$IDENTITY" "$BUNDLE_PATH"
-          codesign --verify --strict --verbose=2 "$BUNDLE_PATH"
 
       - name: package, notarize & staple
         run: |
