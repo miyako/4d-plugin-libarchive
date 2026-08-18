@@ -136,6 +136,11 @@ jobs:
           cp "winbuild/${{ env.PRODUCT_NAME }}.4DX" "$BUNDLE/Contents/Windows64/${{ env.PRODUCT_NAME }}.4DX"
           echo "BUNDLE_PATH=$BUNDLE" >> "$GITHUB_ENV"
 
+      - name: list bundle contents
+        run: find "$BUNDLE_PATH" -type f | sort
+        env:
+          BUNDLE_PATH: ${{ env.PRODUCT_NAME }}/${{ env.PRODUCT_NAME }}-test/Plugins/${{ env.PRODUCT_NAME }}.bundle
+
       - name: codesign
         run: |
           set -euo pipefail
