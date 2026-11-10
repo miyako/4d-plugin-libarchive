@@ -10,6 +10,9 @@ env:
   PRODUCT_NAME: 4DArchive
   MACOS_DEPLOYMENT_TARGET: '10.13'
   PYTHONDONTWRITEBYTECODE: '1'
+  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_KEY_0: core.autocrlf
+  GIT_CONFIG_VALUE_0: 'false'
 
 concurrency:
   group: libarchive-publication

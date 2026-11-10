@@ -13,7 +13,7 @@ def git(root, *args):
 
 
 def validate(root, selected):
-    from repository import actual_blob
+    from repository import matches_blob
 
     root = Path(root)
     record = git(root, "ls-tree", selected, "--", PATH).decode().strip()
@@ -67,5 +67,5 @@ def validate(root, selected):
                 raise ValueError("symlink in immutable libarchive source")
         if not source.is_file():
             raise ValueError("missing immutable libarchive source")
-        if actual_blob(source) != (mode, blob):
+        if not matches_blob(source, (mode, blob)):
             raise ValueError(f"raw libarchive source differs from selected tree: {name}")

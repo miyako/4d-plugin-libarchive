@@ -256,12 +256,24 @@ class PublicationCLITests(GitFixture):
                          for path in self.protected + tuple(map(str, source.SOURCE_PATHS))}
         self.assertTrue(set(self.generated) <= set(self.git("ls-files").splitlines()))
 
-    def command(self, name, *, mode="", assets=None, extra_env=None):
+    def command(self, name, *, mode="", assets=None, extra_env=None, windows=False):
         args = [name, "--sha", self.sha]
         if name == "publish":
             args.extend(release.asset_names(self.version) if assets is None else assets)
-        return self.cli(".github/scripts/release.py", *args,
-                        env={**self.env, "GH_MODE": mode, **(extra_env or {})})
+        env = {**self.env, "GH_MODE": mode, **(extra_env or {})}
+        if windows:
+            bootstrap = (
+                "import runpy,sys,types;"
+                "sys.dont_write_bytecode=True;"
+                "sys.path.insert(0,'.github/scripts');"
+                "import repository;"
+                "repository.sys=types.SimpleNamespace(platform='win32');"
+                "sys.argv=['.github/scripts/release.py',*sys.argv[1:]];"
+                "runpy.run_path('.github/scripts/release.py',run_name='__main__')"
+            )
+            return subprocess.run([sys.executable, "-c", bootstrap, *args], cwd=self.local,
+                                  env=env, text=True, capture_output=True, timeout=60)
+        return self.cli(".github/scripts/release.py", *args, env=env)
 
     def calls(self):
         return [json.loads(line) for line in self.log.read_text().splitlines()] if self.log.exists() else []
@@ -280,6 +292,7 @@ class PublicationCLITests(GitFixture):
                 "CFBundlePackageType": "BNDL",
             }, fmt=plistlib.FMT_BINARY),
             str(native.BUNDLE / "Contents/Windows64/4DArchive.4DX"): b"fresh Windows executable",
+            str(native.DOWNLOAD): b"fresh Windows executable",
             str(native.BUNDLE / "Contents/_CodeSignature/CodeResources"): b"fresh signature bytes",
             "4DArchive/cmake-build/CMakeCache.txt": b"fresh CMake cache",
             "4DArchive/cmake-build/CMakeFiles/4DArchive.dir/archive_commands.cpp.o": b"fresh object",
@@ -296,6 +309,123 @@ class PublicationCLITests(GitFixture):
         for path in release.asset_names(self.version):
             (self.local / path).write_bytes(b"fresh package")
         return data
+
+    def test_windows_simulated_regular_modes_preserve_root_and_dependency_raw_index_guards(self):
+        dependency = "deps/libarchive"
+        dependency_script = "libarchive/tool.sh"
+        dependency_path = self.local / dependency / dependency_script
+        dependency_path.write_bytes(b"#!/bin/sh\nexit 0\n")
+        dependency_path.chmod(0o755)
+        self.git("-C", dependency, "add", dependency_script)
+        self.git("-C", dependency, "commit", "--quiet", "-m", "executable dependency fixture")
+        self.git("add", dependency)
+        self.git("commit", "--quiet", "-m", "bind executable dependency fixture")
+        self.sha = self.git("rev-parse", "HEAD")
+        self.env["GITHUB_SHA"] = self.sha
+        self.git("--git-dir=" + str(self.bare), "fetch", "--quiet", "--no-tags",
+                 str(self.local), self.sha)
+        root_script = ".github/scripts/native.sh"
+        for directory in (".", dependency):
+            self.git("-C", directory, "config", "core.filemode", "false")
+        self.assertTrue(self.git("ls-tree", self.sha, "--", root_script).startswith("100755 blob "))
+        self.assertTrue(self.git("-C", dependency, "ls-tree", "HEAD", "--",
+                                 dependency_script).startswith("100755 blob "))
+        for path in (self.local / root_script, dependency_path):
+            path.chmod(0o644)
+            self.assertEqual(path.stat().st_mode & 0o111, 0)
+        self.assertEqual(self.git("status", "--porcelain"), "")
+        self.assertEqual(self.git("-C", dependency, "status", "--porcelain"), "")
+        self.assertNotEqual(self.command("preflight").returncode, 0)
+        self.assertEqual(self.calls(), [])
+        result = self.command("preflight", windows=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.reset_api()
+        for final in (False, True):
+            expected = self.build() if final else {}
+            for directory, relative in ((".", root_script), (dependency, dependency_script)):
+                path = self.local / directory / relative
+                saved = path.read_bytes()
+                for mutation in ("raw", "staged-raw", "reversed-raw", "staged-mode", "symlink", "directory"):
+                    with self.subTest(final=final, directory=directory, mutation=mutation):
+                        self.reset_api()
+                        if mutation == "staged-mode":
+                            self.git("-C", directory, "update-index", "--chmod=-x", "--", relative)
+                        elif mutation in ("symlink", "directory"):
+                            path.unlink()
+                            if mutation == "symlink":
+                                peer = self.root / "same-executable-bytes"
+                                peer.write_bytes(saved)
+                                path.symlink_to(peer)
+                            else:
+                                path.mkdir()
+                        else:
+                            path.write_bytes(saved + b"# unexpected source mutation\n")
+                            if mutation in ("staged-raw", "reversed-raw"):
+                                self.git("-C", directory, "add", "--", relative)
+                            if mutation == "reversed-raw":
+                                path.write_bytes(saved)
+                        result = self.command("publish" if final else "preflight", windows=True)
+                        self.assertNotEqual(result.returncode, 0, result.stdout)
+                        self.assertEqual(self.calls(), [], result.stderr)
+                        if mutation == "directory":
+                            path.rmdir()
+                        elif mutation == "symlink":
+                            path.unlink()
+                        path.write_bytes(saved)
+                        path.chmod(0o644)
+                        self.git("-C", directory, "restore", "--staged", "--", relative)
+            self.reset_api()
+            result = self.command("check" if final else "preflight", windows=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            for path, raw in expected.items():
+                self.assertEqual((self.local / path).read_bytes(), raw)
+
+    def test_final_all_native_leaves_reject_late_missing_empty_directory_and_symlink_before_api(self):
+        expected = self.build()
+        for relative in native.FILES:
+            path = self.local / relative
+            saved = path.read_bytes()
+            for mutation in ("missing", "empty", "directory", "symlink"):
+                with self.subTest(path=relative, mutation=mutation):
+                    self.reset_api()
+                    path.unlink()
+                    if mutation == "empty":
+                        path.write_bytes(b"")
+                    elif mutation == "directory":
+                        path.mkdir()
+                    elif mutation == "symlink":
+                        peer = self.root / "same-generated-bytes"
+                        peer.write_bytes(saved)
+                        path.symlink_to(peer)
+                    result = self.command("publish")
+                    self.assertNotEqual(result.returncode, 0, result.stdout)
+                    self.assertEqual(self.calls(), [], result.stderr)
+                    if mutation == "directory":
+                        path.rmdir()
+                    elif path.exists() or path.is_symlink():
+                        path.unlink()
+                    path.write_bytes(saved)
+        result = self.command("publish")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for path, raw in expected.items():
+            self.assertEqual((self.local / path).read_bytes(), raw)
+
+    def test_final_download_and_merged_windows_bytes_must_match_before_api(self):
+        expected = self.build()
+        merged = native.CONTENTS / "Windows64/4DArchive.4DX"
+        for relative in (native.DOWNLOAD, merged):
+            with self.subTest(path=relative):
+                path = self.local / relative
+                saved = path.read_bytes()
+                path.write_bytes(b"different nonempty late Windows artifact")
+                result = self.command("publish")
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(self.calls(), [])
+                path.write_bytes(saved)
+        result = self.command("publish")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for path, raw in expected.items():
+            self.assertEqual((self.local / path).read_bytes(), raw)
 
     def test_actual_cli_clean_preflight_then_tracked_native_dirt_publish_retains_exact_bytes(self):
         result = self.command("preflight")

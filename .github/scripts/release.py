@@ -148,6 +148,7 @@ def context(sha, *, final=False):
         native.validate_paths((*native.FILES, *native.DIRECTORIES))
         native.verify_resources()
         source_version.verify_bundle(native.BUNDLE)
+        native.validate_final()
     return version, "v" + version
 
 

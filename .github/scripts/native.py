@@ -17,12 +17,13 @@ CONTENTS = BUNDLE / "Contents"
 EXECUTABLE = CONTENTS / "MacOS/4DArchive"
 WINDOWS = Path("4DArchive/4DArchive-test/Plugins/4DArchive/Contents/Windows64/4DArchive.4DX")
 RESOURCES = ("manifest.json", "constants.xlf")
+DOWNLOAD = Path("winbuild/4DArchive.4DX")
 FILES = (
     EXECUTABLE, CONTENTS / "Info.plist",
     *(CONTENTS / "Resources" / name for name in RESOURCES),
     CONTENTS / "Windows64/4DArchive.4DX",
     CONTENTS / "_CodeSignature/CodeResources",
-    Path("winbuild/4DArchive.4DX"),
+    DOWNLOAD,
 )
 DIRECTORIES = (Path("4DArchive/cmake-build"), CONTENTS / "_CodeSignature")
 
@@ -148,6 +149,18 @@ def validate(root=ROOT):
     return version
 
 
+def validate_final(root=Path(".")):
+    root = Path(root)
+    version = validate(root)
+    for relative in FILES:
+        path = regular(relative, root)
+        if not path.is_file() or path.stat().st_size == 0:
+            raise ValueError(f"missing/empty final native leaf: {relative}")
+    if (root / DOWNLOAD).read_bytes() != (root / CONTENTS / "Windows64/4DArchive.4DX").read_bytes():
+        raise ValueError("final merged Windows binary differs from exact downloaded artifact")
+    return version
+
+
 def architectures(output):
     values = output.strip().split()
     if not {"arm64", "x86_64"} <= set(values):
@@ -161,7 +174,7 @@ def main():
     if args.command.startswith("clean-"):
         clean(args.command[6:])
     elif args.command == "validate":
-        validate()
+        validate_final()
     else:
         path = regular(EXECUTABLE)
         if not path.is_file() or path.stat().st_size == 0:

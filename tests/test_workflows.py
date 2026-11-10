@@ -64,6 +64,15 @@ class WorkflowContractTests(unittest.TestCase):
         ):
             self.assertIn(policy, cmake)
 
+    def test_build_disables_checkout_conversion_in_scoped_inherited_git_environment(self):
+        workflow = (ROOT / ".github/workflows/release.yml").read_text()
+        environment = workflow.split("\nenv:\n", 1)[1].split("\nconcurrency:", 1)[0]
+        self.assertIn("GIT_CONFIG_COUNT: '1'", environment)
+        self.assertIn("GIT_CONFIG_KEY_0: core.autocrlf", environment)
+        self.assertIn("GIT_CONFIG_VALUE_0: 'false'", environment)
+        self.assertNotIn("git config --global", workflow)
+        self.assertEqual(workflow.count("submodules: recursive"), 3)
+
 
 if __name__ == "__main__":
     unittest.main()

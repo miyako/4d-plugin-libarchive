@@ -40,7 +40,8 @@ class NativeTests(unittest.TestCase):
             "CFBundleExecutable": "4DArchive", "CFBundleIdentifier": "com.4d.4DArchive",
             "CFBundlePackageType": "BNDL",
         }, fmt=plistlib.FMT_BINARY if binary else plistlib.FMT_XML))
-        for relative in (native.EXECUTABLE, native.CONTENTS / "Windows64/4DArchive.4DX"):
+        for relative in (native.EXECUTABLE, native.CONTENTS / "Windows64/4DArchive.4DX",
+                         native.DOWNLOAD, native.CONTENTS / "_CodeSignature/CodeResources"):
             path = self.root / relative
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(b"fresh native bytes")
@@ -53,6 +54,18 @@ class NativeTests(unittest.TestCase):
         for binary in (False, True):
             self.populate(binary)
             self.assertEqual(native.validate(self.root), self.version)
+            self.assertEqual(native.validate_final(self.root), self.version)
+
+    def test_unsigned_merge_validation_does_not_require_final_signature(self):
+        (self.root / native.CONTENTS / "_CodeSignature/CodeResources").unlink()
+        self.assertEqual(native.validate(self.root), self.version)
+        with self.assertRaisesRegex(ValueError, "final native leaf"):
+            native.validate_final(self.root)
+
+    def test_final_windows_download_must_equal_merged_bytes(self):
+        (self.root / native.DOWNLOAD).write_bytes(b"late different download")
+        with self.assertRaisesRegex(ValueError, "exact downloaded artifact"):
+            native.validate_final(self.root)
 
     def test_metadata_drift_and_missing_short(self):
         path = self.root / native.CONTENTS / "Info.plist"

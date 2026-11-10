@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 import stat
 import subprocess
+import sys
 import dependency
 
 
@@ -58,6 +59,15 @@ def actual_blob(path):
     return ("100755" if mode & 0o111 else "100644"), digest.hexdigest()
 
 
+def matches_blob(path, expected):
+    actual = actual_blob(path)
+    if actual == expected:
+        return True
+    regular_modes = {"100644", "100755"}
+    return (sys.platform == "win32" and actual[0] in regular_modes
+            and expected[0] in regular_modes and actual[1] == expected[1])
+
+
 def verify_checkout(sha, *, generated=lambda path: False, assets=(), final=False):
     selected_sha(sha)
     selected = entries(run("git", "ls-tree", "-r", "-z", sha, "--"))
@@ -75,7 +85,7 @@ def verify_checkout(sha, *, generated=lambda path: False, assets=(), final=False
         if final and generated(path):
             continue
         try:
-            if actual_blob(path) != selected[path]:
+            if not matches_blob(path, selected[path]):
                 raise ValueError(f"Working source/config differs from selected SHA: {path}")
         except OSError as error:
             raise ValueError(f"Working source/config missing or unreadable: {path}") from error

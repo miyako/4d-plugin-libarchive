@@ -34,7 +34,14 @@ inventory, exact API refs and exact remote tag absence, before native work.
 After signing/notarization it independently rechecks source HEAD, index, raw
 source bytes and initialized submodule content while retaining legitimate
 generated output bytes. It validates built metadata and exact copied resources
-again. Publication uses one repository-wide, cross-ref concurrency group without
+again. Final validation requires every packaged native leaf, including the
+signature, to be a nonempty regular nonsymlink file; the merged Windows binary
+must exactly equal the nonempty downloaded artifact. Unsigned pre-sign merge
+validation remains separate. All Build checkouts inherit scoped
+`core.autocrlf=false`, including recursive dependencies. The index must match
+selected file modes everywhere; only Windows worktree regular-file executable
+bits are ignored, never symlinks, file types or raw bytes.
+Publication uses one repository-wide, cross-ref concurrency group without
 cancelling another run; this is serialization, not a FIFO guarantee.
 
 Publication creates a new tag ref at the selected immutable commit, then a new
